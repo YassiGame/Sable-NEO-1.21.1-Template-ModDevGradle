@@ -6,6 +6,8 @@ plugins {
 }
 
 def aeronauticsEnabled = providers.gradleProperty("aeronautics_enabled").map { it.toBoolean() }.getOrElse(true)
+def createEnabled = providers.gradleProperty("create_enabled").map { it.toBoolean() }.getOrElse(true)
+
 
 tasks.named('wrapper', Wrapper).configure {
     // Define wrapper values here so as to not have to always do so when updating gradlew.properties.
@@ -30,8 +32,6 @@ sourceSets.main.resources {
 
 repositories {
     maven { url = "https://maven.createmod.net" } // Create, Ponder, Flywheel
-    maven { url = "https://mvn.devos.one/snapshots" } // Registrate
-    maven { url = "https://raw.githubusercontent.com/Fuzss/modresources/main/maven/" } // ForgeConfigAPIPort
 
     // Modrinth
     maven {
@@ -139,20 +139,19 @@ configurations {
 dependencies {
     implementation "net.neoforged:neoforge:${neo_version}"
 
-    //create
-    implementation("com.simibubi.create:create-${minecraft_version}:${create_version}") { transitive = false }
-
-    //ponder
-    implementation("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
-
-    //flywheel
-    compileOnly "dev.engine-room.flywheel:flywheel-neoforge-api-${minecraft_version}:${flywheel_version}"
-    runtimeOnly "dev.engine-room.flywheel:flywheel-neoforge-${minecraft_version}:${flywheel_version}"
+    // Create section
+    if (createEnabled || aeronauticsEnabled) {
+        //create
+        implementation("com.simibubi.create:create-${minecraft_version}:${create_version}") { transitive = false }
+        //ponder
+        implementation("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
+        //flywheel
+        compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-${minecraft_version}:${flywheel_version}")
+        runtimeOnly("dev.engine-room.flywheel:flywheel-neoforge-${minecraft_version}:${flywheel_version}")
+    }
 
     // Sable
-    api("dev.ryanhcode.sable:sable-neoforge-${minecraft_version}:$sable_version") {
-        exclude group: "foundry.veil"
-    }
+    api("dev.ryanhcode.sable:sable-neoforge-${minecraft_version}:$sable_version") { transitive = false }
 
     // Create Aeronautics
     if (aeronauticsEnabled) {
@@ -191,8 +190,17 @@ var replaceProperties = [
         mod_name               : mod_name,
         mod_license            : mod_license,
         mod_version            : mod_version,
-        create_mod_version         : create_mod_version,
         sable_mod_version          : sable_mod_version,
+
+        // if create is enabled place it in the mods toml dependency
+        create_dependency_block: (createEnabled || aeronauticsEnabled) ? """
+[[dependencies.${mod_id}]]
+    modId="create"
+    type="required"
+    versionRange="[${create_mod_version},)"
+    ordering="NONE"
+    side="BOTH"
+""": "",
 
         // if aero is enabled place it in the mods toml dependency
         aeronautics_dependency_block: aeronauticsEnabled ? """
